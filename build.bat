@@ -1,0 +1,1 @@
+ghc --make -optl-mwindows frpong.hs
