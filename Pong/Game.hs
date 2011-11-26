@@ -16,7 +16,7 @@ type GameLogic = Coroutine Keyboard Rects
 
 type PlayerPos = Pos
 type BallPos   = Pos
-type Velocity = (X,Y)
+type Velocity  = (X,Y)
 
 batSpeed = 5
 batSize  = (10,40)
@@ -69,9 +69,6 @@ game = playerPos >>> gameLogic >>> mkRects where
         w' = w `div` 2
         h' = h `div` 2
 
-    -- ballPos :: Coroutine (Event BallBounce, Event BallReset) Pos
-    -- ballPos = scanE ballInitPos
-
     ballPos :: Coroutine PlayerPos BallPos
     ballPos = loop $ watch collision &&& arr snd
         >>> mapE (const HBounce) *** wallBounce
@@ -88,7 +85,7 @@ game = playerPos >>> gameLogic >>> mkRects where
         (bw,bh) = ballSize
         (pw,ph) = batSize
 
-    bounce :: (Int,Int) -> BallBounce -> (Int,Int)
+    bounce :: Velocity -> BallBounce -> Velocity
     bounce (dx,dy) b = case b of
         HBounce -> (-dx,dy)
         VBounce -> (dx,-dy)
