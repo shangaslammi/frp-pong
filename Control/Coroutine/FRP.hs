@@ -30,7 +30,7 @@ withPrevious' = Coroutine $ \i -> ((i,i), step i) where
     step old = Coroutine $ \i -> ((i, old), step i)
 
 delay :: a -> Coroutine a a
-delay = withPrevious a >>> arr fst
+delay a = withPrevious a >>> arr fst
 
 integral :: Num a => a -> Coroutine a a
 integral = scan (+)
