@@ -1,5 +1,5 @@
 {-# LANGUAGE Arrows #-}
-module Pong.Game where
+module Pong.Game (GameLogic, game) where
 
 import Control.Arrow
 import Control.Coroutine
@@ -41,82 +41,82 @@ vecAdd :: (Int, Int) -> (Int, Int) -> (Int, Int)
 vecAdd (a,b) (c,d) = (a+c,b+d)
 
 game :: GameLogic
-game = playerPos >>> gameLogic >>> mkRects where
+game = playerPos >>> gameLogic >>> mkRects
 
-    gameLogic :: Coroutine PlayerPos (PlayerPos, BallPos)
-    gameLogic = id &&& ballPos
+gameLogic :: Coroutine PlayerPos (PlayerPos, BallPos)
+gameLogic = id &&& ballPos
 
-    mkRects :: Coroutine (PlayerPos, BallPos) Rects
-    mkRects = batRect *** ballRect
-        >>> arr (\(a,b) -> [a,b])
+mkRects :: Coroutine (PlayerPos, BallPos) Rects
+mkRects = batRect *** ballRect
+    >>> arr (\(a,b) -> [a,b])
 
-    keyboardDir :: Coroutine Keyboard Int
-    keyboardDir = arr f where
-        f kb
-            | isKeyDown kb up   = -1
-            | isKeyDown kb down = 1
-            | otherwise         = 0
-
-    {-
-    playerPos :: Coroutine Keyboard PlayerPos
-    playerPos = keyboardDir
-        >>> arr (*batSpeed)
-        >>> integral startPos
-        >>> arr (const 10) &&& id
-    -}
-
-    playerPos :: Coroutine Keyboard PlayerPos
-    playerPos = proc kb -> do
-        dir <- keyboardDir -< kb
-        let velocity = dir * batSpeed
-        y <- integral startPos -< velocity
-        returnA -< (10, y)
-
-    batRect :: Coroutine Pos Rect
-    batRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
-        (w,h) = batSize
-        w' = w `div` 2
-        h' = h `div` 2
+keyboardDir :: Coroutine Keyboard Int
+keyboardDir = arr f where
+    f kb
+        | isKeyDown kb up   = -1
+        | isKeyDown kb down = 1
+        | otherwise         = 0
 
 {-
-    ballPos :: Coroutine PlayerPos BallPos
-    ballPos = loop $ watch collision &&& arr snd
-        >>> mapE (const HBounce) *** wallBounce
-        >>> mergeE
-        >>> scanE bounce ballInitDir
-        >>> arr (vecMul ballSpeed)
-        >>> scan vecAdd ballInitPos
-        >>> withPrevious ballInitPos
+playerPos :: Coroutine Keyboard PlayerPos
+playerPos = keyboardDir
+    >>> arr (*batSpeed)
+    >>> integral startPos
+    >>> arr (const 10) &&& id
 -}
 
-    ballPos :: Coroutine PlayerPos BallPos
-    ballPos = proc plPos -> do
-        rec batB  <- mapE (const HBounce) <<< watch collision -< (plPos, pos)
-            wallB <- wallBounce -< pos
-            dir   <- scanE bounce ballInitDir <<< mergeE -< (batB, wallB)
-            let velocity = ballSpeed `vecMul` dir
-            pos   <- delay ballInitPos <<< scan vecAdd ballInitPos -< velocity
-        returnA -< pos
+playerPos :: Coroutine Keyboard PlayerPos
+playerPos = proc kb -> do
+    dir <- keyboardDir -< kb
+    let velocity = dir * batSpeed
+    y <- integral startPos -< velocity
+    returnA -< (10, y)
+
+batRect :: Coroutine Pos Rect
+batRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
+    (w,h) = batSize
+    w' = w `div` 2
+    h' = h `div` 2
+
+{-
+ballPos :: Coroutine PlayerPos BallPos
+ballPos = loop $ watch collision &&& arr snd
+    >>> mapE (const HBounce) *** wallBounce
+    >>> mergeE
+    >>> scanE bounce ballInitDir
+    >>> arr (vecMul ballSpeed)
+    >>> scan vecAdd ballInitPos
+    >>> withPrevious ballInitPos
+-}
+
+ballPos :: Coroutine PlayerPos BallPos
+ballPos = proc plPos -> do
+    rec batB  <- mapE (const HBounce) <<< watch collision -< (plPos, pos)
+        wallB <- wallBounce -< pos
+        dir   <- scanE bounce ballInitDir <<< mergeE -< (batB, wallB)
+        let velocity = ballSpeed `vecMul` dir
+        pos   <- delay ballInitPos <<< scan vecAdd ballInitPos -< velocity
+    returnA -< pos
 
 
-    collision :: (PlayerPos, BallPos) -> Bool
-    collision ((px,py),(bx,by)) = abs (px-bx) < w' && abs (py-by) < h' where
-        w' = (bw + pw) `div` 2
-        h' = (bh + ph) `div` 2
-        (bw,bh) = ballSize
-        (pw,ph) = batSize
+collision :: (PlayerPos, BallPos) -> Bool
+collision ((px,py),(bx,by)) = abs (px-bx) < w' && abs (py-by) < h' where
+    w' = (bw + pw) `div` 2
+    h' = (bh + ph) `div` 2
+    (bw,bh) = ballSize
+    (pw,ph) = batSize
 
-    bounce :: Velocity -> BallBounce -> Velocity
-    bounce (dx,dy) b = case b of
-        HBounce -> (-dx,dy)
-        VBounce -> (dx,-dy)
+bounce :: Velocity -> BallBounce -> Velocity
+bounce (dx,dy) b = case b of
+    HBounce -> (-dx,dy)
+    VBounce -> (dx,-dy)
 
-    wallBounce :: Coroutine BallPos (Event BallBounce)
-    wallBounce = watch (\(_,y) -> y < topWall || y > bottomWall)
-        >>> mapE (const VBounce)
+wallBounce :: Coroutine BallPos (Event BallBounce)
+wallBounce = watch (\(_,y) -> y < topWall || y > bottomWall)
+    >>> mapE (const VBounce)
 
-    ballRect :: Coroutine Pos Rect
-    ballRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
-        (w,h) = ballSize
-        w' = w `div` 2
-        h' = h `div` 2
+ballRect :: Coroutine Pos Rect
+ballRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
+    (w,h) = ballSize
+    w' = w `div` 2
+    h' = h `div` 2
