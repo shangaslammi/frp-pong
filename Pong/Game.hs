@@ -1,4 +1,4 @@
-
+{-# LANGUAGE Arrows #-}
 module Pong.Game where
 
 import Control.Arrow
@@ -57,11 +57,20 @@ game = playerPos >>> gameLogic >>> mkRects where
             | isKeyDown kb down = 1
             | otherwise         = 0
 
+    {-
     playerPos :: Coroutine Keyboard PlayerPos
     playerPos = keyboardDir
         >>> arr (*batSpeed)
         >>> integral startPos
         >>> arr (const 10) &&& id
+    -}
+
+    playerPos :: Coroutine Keyboard PlayerPos
+    playerPos = proc kb -> do
+        dir <- keyboardDir -< kb
+        let velocity = dir * batSpeed
+        y <- integral startPos -< velocity
+        returnA -< (10, y)
 
     batRect :: Coroutine Pos Rect
     batRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
@@ -69,6 +78,7 @@ game = playerPos >>> gameLogic >>> mkRects where
         w' = w `div` 2
         h' = h `div` 2
 
+{-
     ballPos :: Coroutine PlayerPos BallPos
     ballPos = loop $ watch collision &&& arr snd
         >>> mapE (const HBounce) *** wallBounce
@@ -77,6 +87,17 @@ game = playerPos >>> gameLogic >>> mkRects where
         >>> arr (vecMul ballSpeed)
         >>> scan vecAdd ballInitPos
         >>> withPrevious ballInitPos
+-}
+
+    ballPos :: Coroutine PlayerPos BallPos
+    ballPos = proc plPos -> do
+        rec batB  <- mapE (const HBounce) <<< watch collision -< (plPos, pos)
+            wallB <- wallBounce -< pos
+            dir   <- scanE bounce ballInitDir <<< mergeE -< (batB, wallB)
+            let velocity = ballSpeed `vecMul` dir
+            pos   <- delay ballInitPos <<< scan vecAdd ballInitPos -< velocity
+        returnA -< pos
+
 
     collision :: (PlayerPos, BallPos) -> Bool
     collision ((px,py),(bx,by)) = abs (px-bx) < w' && abs (py-by) < h' where
@@ -90,7 +111,7 @@ game = playerPos >>> gameLogic >>> mkRects where
         HBounce -> (-dx,dy)
         VBounce -> (dx,-dy)
 
-    wallBounce :: Coroutine Pos (Event BallBounce)
+    wallBounce :: Coroutine BallPos (Event BallBounce)
     wallBounce = watch (\(_,y) -> y < topWall || y > bottomWall)
         >>> mapE (const VBounce)
 
