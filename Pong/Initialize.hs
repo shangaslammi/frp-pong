@@ -10,7 +10,7 @@ initializeWindow = do
     _ <- getArgsAndInitialize
     initialWindowSize  $= Size 800 600
     initialDisplayMode $= [DoubleBuffered]
-    createWindow "Haskeroids"
+    createWindow "FRP Pong Test"
 
 -- | Set up the initial OpenGL parameters
 initializeOpenGL = do
