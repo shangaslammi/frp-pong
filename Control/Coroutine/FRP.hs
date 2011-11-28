@@ -2,6 +2,7 @@
 
 module Control.Coroutine.FRP where
 
+import qualified Control.Category as C
 import Control.Arrow
 import Data.List (foldl')
 
@@ -68,12 +69,7 @@ restartWhen co = Coroutine $ step co where
         | otherwise = let (o, c') = runC co i in (o, restartWhen co)
 
 delayE :: Int -> Coroutine (Event e) (Event e)
-delayE delay = Coroutine $ step 0 IntMap.empty where
-    step !cur !buffer ev = (ev', Coroutine $ step (cur+1) buffer') where
-        ev' = IntMap.findWithDefault [] cur buffer'
-        buffer'
-            | null ev   = buffer
-            | otherwise = IntMap.insertWith (++) (cur+delay) ev buffer
+delayE delay = arr (const delay) &&& C.id >>> delayEn
 
 delayEn :: Coroutine (Int, Event e) (Event e)
 delayEn = Coroutine $ step 0 IntMap.empty where
