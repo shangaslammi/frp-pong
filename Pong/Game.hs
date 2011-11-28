@@ -41,11 +41,10 @@ vecAdd :: (Int, Int) -> (Int, Int) -> (Int, Int)
 vecAdd (a,b) (c,d) = (a+c,b+d)
 
 game :: GameLogic
-game = playerPos >>> id &&& ballPos >>> joinRects
+game = playerPos >>> mkRect batSize &&& (ballPos >>> mkRect ballSize) >>> joinRects
 
-joinRects :: Coroutine (PlayerPos, BallPos) Rects
-joinRects = batRect *** ballRect
-    >>> arr (\(a,b) -> [a,b])
+joinRects :: Coroutine (Rect, Rect) Rects
+joinRects = arr (\(a,b) -> [a,b])
 
 keyboardDir :: Coroutine Keyboard Int
 keyboardDir = arr f where
@@ -68,12 +67,6 @@ playerPos = proc kb -> do
     let velocity = dir * batSpeed
     y <- integral startPos -< velocity
     returnA -< (10, y)
-
-batRect :: Coroutine Pos Rect
-batRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
-    (w,h) = batSize
-    w' = w `div` 2
-    h' = h `div` 2
 
 {-
 ballPos :: Coroutine PlayerPos BallPos
@@ -111,8 +104,7 @@ bounce (dx,dy) b = case b of
 wallBounce :: Coroutine BallPos (Event BallBounce)
 wallBounce = watch (\(_,y) -> y < topWall || y > bottomWall) >>> constE VBounce
 
-ballRect :: Coroutine Pos Rect
-ballRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
-    (w,h) = ballSize
+mkRect :: Size -> Coroutine Pos Rect
+mkRect (w,h) = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
     w' = w `div` 2
     h' = h `div` 2
