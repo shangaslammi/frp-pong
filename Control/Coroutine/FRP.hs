@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 
 module Control.Coroutine.FRP where
 
@@ -5,6 +6,7 @@ import Control.Arrow
 import Data.List (foldl')
 
 import Control.Coroutine
+import qualified Data.IntMap as IntMap
 
 type Event a = [a]
 
@@ -58,3 +60,17 @@ stepE :: a -> Coroutine (Event a) a
 stepE a = Coroutine $ \ev ->
     let a' = last (a:ev)
     in (a', stepE a')
+
+restartWhen :: Coroutine a b -> Coroutine (Event e, a) b
+restartWhen co = Coroutine $ step co where
+    step c (ev, i)
+        | null ev   = let (o, c') = runC c i in (o, Coroutine $ step c')
+        | otherwise = let (o, c') = runC co i in (o, restartWhen co)
+
+delayE :: Int -> Coroutine (Event e) (Event e)
+delayE delay = Coroutine $ step 0 IntMap.empty where
+    step !cur !buffer ev = (ev', Coroutine $ step (cur+1) buffer') where
+        ev' = IntMap.findWithDefault [] cur buffer'
+        buffer'
+            | null ev   = buffer
+            | otherwise = IntMap.insertWith (++) (cur+delay) ev buffer
