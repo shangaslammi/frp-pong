@@ -41,13 +41,10 @@ vecAdd :: (Int, Int) -> (Int, Int) -> (Int, Int)
 vecAdd (a,b) (c,d) = (a+c,b+d)
 
 game :: GameLogic
-game = playerPos >>> gameLogic >>> mkRects
+game = playerPos >>> id &&& ballPos >>> joinRects
 
-gameLogic :: Coroutine PlayerPos (PlayerPos, BallPos)
-gameLogic = id &&& ballPos
-
-mkRects :: Coroutine (PlayerPos, BallPos) Rects
-mkRects = batRect *** ballRect
+joinRects :: Coroutine (PlayerPos, BallPos) Rects
+joinRects = batRect *** ballRect
     >>> arr (\(a,b) -> [a,b])
 
 keyboardDir :: Coroutine Keyboard Int
