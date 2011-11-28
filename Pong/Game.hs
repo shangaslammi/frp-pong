@@ -109,8 +109,7 @@ bounce (dx,dy) b = case b of
     VBounce -> (dx,-dy)
 
 wallBounce :: Coroutine BallPos (Event BallBounce)
-wallBounce = watch (\(_,y) -> y < topWall || y > bottomWall)
-    >>> mapE (const VBounce)
+wallBounce = watch (\(_,y) -> y < topWall || y > bottomWall) >>> constE VBounce
 
 ballRect :: Coroutine Pos Rect
 ballRect = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
