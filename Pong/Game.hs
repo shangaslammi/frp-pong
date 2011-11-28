@@ -91,7 +91,7 @@ ballPos = loop $ watch collision &&& arr snd
 
 ballPos :: Coroutine PlayerPos BallPos
 ballPos = proc plPos -> do
-    rec batB  <- mapE (const HBounce) <<< watch collision -< (plPos, pos)
+    rec batB  <- constE HBounce <<< watch collision -< (plPos, pos)
         wallB <- wallBounce -< pos
         dir   <- scanE bounce ballInitDir <<< mergeE -< (batB, wallB)
         let velocity = ballSpeed `vecMul` dir

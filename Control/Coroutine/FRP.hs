@@ -57,6 +57,9 @@ filterE = arr . filter
 mergeE :: Coroutine (Event e, Event e) (Event e)
 mergeE = zipC (++)
 
+constE :: e -> Coroutine (Event e') (Event e)
+constE = mapE . const
+
 stepE :: a -> Coroutine (Event a) a
 stepE a = Coroutine $ \ev ->
     let a' = last (a:ev)
