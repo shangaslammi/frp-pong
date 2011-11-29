@@ -35,8 +35,8 @@ withPrevious' = Coroutine $ \i -> ((i,i), step i) where
 delay :: a -> Coroutine a a
 delay a = withPrevious a >>> arr snd
 
-integral :: Num a => a -> Coroutine a a
-integral = scan (+)
+integrate :: Num a => a -> Coroutine a a
+integrate = scan (+)
 
 derivate :: Num a => Coroutine a a
 derivate = withPrevious 0 >>> zipC (-)
