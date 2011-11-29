@@ -43,6 +43,12 @@ instance ArrowLoop Coroutine where
         let ((c,d),co') = runC co (b,d)
         in (c, loop co')
 
+instance ArrowChoice Coroutine where
+    left co = Coroutine step where
+        step ebd = case ebd of
+            Left b  -> let (o, co') = runC co b in (Left o, left co')
+            Right c -> (Right c, Coroutine step)
+
 scan :: (a -> b -> a) -> a -> Coroutine b a
 scan f i = Coroutine $ step i where
     step a b = let a' = f a b in (a', scan f a')
