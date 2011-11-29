@@ -79,11 +79,17 @@ ballPos = loop $ watch collision &&& arr snd
     >>> withPrevious ballInitPos
 -}
 
+{-
 ballPos :: Coroutine PlayerPos BallPos
 ballPos = proc plPos -> do
     rec pos   <- restartWhen ballPos' -< (plPos, reset)
         reset <- watch outOfBounds -< pos
     returnA -< pos
+    where outOfBounds (x,_) = x < 0 || x > 800
+-}
+
+ballPos :: Coroutine PlayerPos BallPos
+ballPos = loop $ restartWhen ballPos' >>> id &&& watch outOfBounds
     where outOfBounds (x,_) = x < 0 || x > 800
 
 ballPos' :: Coroutine PlayerPos BallPos
