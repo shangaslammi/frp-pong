@@ -57,7 +57,7 @@ keyboardDir = arr f where
 playerPos :: Coroutine Keyboard PlayerPos
 playerPos = keyboardDir
     >>> arr (*batSpeed)
-    >>> integral startPos
+    >>> integrate startPos
     >>> arr (const 10) &&& id
 -}
 
@@ -65,7 +65,7 @@ playerPos :: Coroutine Keyboard PlayerPos
 playerPos = proc kb -> do
     dir <- keyboardDir -< kb
     let velocity = dir * batSpeed
-    y <- integral startPos -< velocity
+    y <- integrate startPos -< velocity
     returnA -< (10, y)
 
 {-
@@ -81,13 +81,13 @@ ballPos = loop $ watch collision &&& arr snd
 
 ballPos :: Coroutine PlayerPos BallPos
 ballPos = proc plPos -> do
-    rec batB  <- constE HBounce <<< watch collision -< (plPos, pos)
-        wallB <- wallBounce -< pos
+    rec prev  <- delay ballInitPos -< pos
+        batB  <- constE HBounce <<< watch collision -< (plPos, prev)
+        wallB <- wallBounce -< prev
         dir   <- scanE bounce ballInitDir <<< mergeE -< (batB, wallB)
         let velocity = ballSpeed `vecMul` dir
-        pos   <- delay ballInitPos <<< scan vecAdd ballInitPos -< velocity
+        pos   <- scan vecAdd ballInitPos -< velocity
     returnA -< pos
-
 
 collision :: (PlayerPos, BallPos) -> Bool
 collision ((px,py),(bx,by)) = abs (px-bx) < w' && abs (py-by) < h' where

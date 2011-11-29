@@ -16,7 +16,7 @@ type H = Int
 renderRects :: Rects -> IO ()
 renderRects rects = do
     currentColor $= Color4 0.9 0.9 0.9 1.0
-    let vtx :: Int -> Int -> Vertex2 Float
+    let vtx :: Int -> Int -> Vertex2 GLfloat
         vtx x y = Vertex2 (fromIntegral x) (fromIntegral y)
         rectVertices ((x,y),(w,h)) = do
             vertex $ vtx x y
