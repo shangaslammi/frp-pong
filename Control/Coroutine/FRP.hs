@@ -65,11 +65,13 @@ stepE a = Coroutine $ \ev ->
     let a' = last (a:ev)
     in (a', stepE a')
 
-restartWhen :: Coroutine a b -> Coroutine (Event e, a) b
+restartWhen :: Coroutine a b -> Coroutine (a, Event e) b
 restartWhen co = Coroutine $ step co where
-    step c (ev, i)
-        | null ev   = let (o, c') = runC c i in (o, Coroutine $ step c')
-        | otherwise = let (o, c') = runC co i in (o, restartWhen co)
+    step c (i, ev) = (o, Coroutine cont) where
+        (o, c') = runC c i
+        cont
+            | null ev   = step c'
+            | otherwise = step co
 
 delayE :: Int -> Coroutine (Event e) (Event e)
 delayE delay = arr (const delay) &&& C.id >>> delayEn
