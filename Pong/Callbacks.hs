@@ -10,6 +10,8 @@ import Data.Time.Clock.POSIX
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLUT
 
+import System.Exit
+
 import Pong.Keyboard
 import Pong.Game
 import Pong.Rect
@@ -53,8 +55,12 @@ renderViewport (ar, pr, kb, gr) = do
     (r', accum') <- if delta >= secPerTick
         then do
             let (r', c') = runC c keys
-            writeIORef gr (r',c')
-            return (r', delta - secPerTick)
+            case c' of
+                Just c' -> do
+                    writeIORef gr (r',c')
+                    return (r', delta - secPerTick)
+                Nothing -> do
+                    exitWith ExitSuccess
         else return (r, delta)
 
     writeIORef ar accum'
