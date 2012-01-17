@@ -46,27 +46,24 @@ game = playerPos >>> mkRect batSize &&& (ballPos >>> mkRect ballSize) >>> joinRe
 joinRects :: Coroutine (Rect, Rect) Rects
 joinRects = arr (\(a,b) -> [a,b])
 
-keyboardDir :: Coroutine Keyboard Int
-keyboardDir = arr f where
-    f kb
-        | isKeyDown kb up   = -1
-        | isKeyDown kb down = 1
+playerSpeed :: Coroutine Keyboard Int
+playerSpeed = arr keyboardDir where
+    keyboardDir kb
+        | isKeyDown kb up   = -batSpeed
+        | isKeyDown kb down = batSpeed
         | otherwise         = 0
 
-{-
 playerPos :: Coroutine Keyboard PlayerPos
-playerPos = keyboardDir
-    >>> arr (*batSpeed)
-    >>> integrate startPos
-    >>> arr (const 10) &&& id
--}
+playerPos = playerSpeed >>> integrate startPos >>> arr (\y -> (10, y))
 
+{-
 playerPos :: Coroutine Keyboard PlayerPos
 playerPos = proc kb -> do
     dir <- keyboardDir -< kb
     let velocity = dir * batSpeed
     y <- integrate startPos -< velocity
     returnA -< (10, y)
+-}
 
 {-
 ballPos :: Coroutine PlayerPos BallPos
