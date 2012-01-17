@@ -4,6 +4,8 @@ module Control.Coroutine.FRP where
 
 import qualified Control.Category as C
 import Control.Arrow
+import Control.Applicative (liftA2)
+import Data.Monoid
 import Data.List (foldl')
 
 import Control.Coroutine
@@ -39,7 +41,7 @@ integrate :: Num a => a -> Coroutine a a
 integrate = scan (+)
 
 derivate :: Num a => Coroutine a a
-derivate = withPrevious 0 >>> zipC (-)
+derivate = withPrevious 0 >>> zipWithC (-)
 
 scanE :: (a -> e -> a) -> a -> Coroutine (Event e) a
 scanE f i = Coroutine $ step i where
@@ -54,8 +56,14 @@ concatMapE = arr . concatMap
 filterE :: (e -> Bool) -> Coroutine (Event e) (Event e)
 filterE = arr . filter
 
-mergeE :: Coroutine (Event e, Event e) (Event e)
-mergeE = zipC (++)
+zipE :: Coroutine (Event e, Event e) (Event e)
+zipE = zipWithC (++)
+
+mergeE :: Coroutine i (Event e) -> Coroutine i (Event e) -> Coroutine i (Event e)
+mergeE = (<++>)
+
+(<++>) :: Monoid o => Coroutine i o -> Coroutine i o -> Coroutine i o
+(<++>) = liftA2 mappend
 
 constE :: e -> Coroutine (Event e') (Event e)
 constE = mapE . const

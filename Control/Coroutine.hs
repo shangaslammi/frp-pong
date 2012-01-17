@@ -53,8 +53,8 @@ scan :: (a -> b -> a) -> a -> Coroutine b a
 scan f i = Coroutine $ step i where
     step a b = let a' = f a b in (a', Just $ scan f a')
 
-zipC :: (a -> b -> c) -> Coroutine (a,b) c
-zipC = arr . uncurry
+zipWithC :: (a -> b -> c) -> Coroutine (a,b) c
+zipWithC = arr . uncurry
 
 repeatC :: Coroutine a b -> Coroutine a b
 repeatC co = Coroutine $ \a ->

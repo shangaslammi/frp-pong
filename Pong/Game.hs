@@ -5,6 +5,8 @@ import Control.Arrow
 import Control.Coroutine
 import Control.Coroutine.FRP
 
+import Data.Monoid
+
 import Pong.Keyboard
 import Pong.Controls
 import Pong.Rect
@@ -33,17 +35,11 @@ bottomWall = 590
 data BallBounce = HBounce | VBounce
 type BallReset  = ()
 
-vecMul :: Int -> (Int, Int) -> (Int, Int)
-vecMul c (x,y) = (x*c,y*c)
-
-vecAdd :: (Int, Int) -> (Int, Int) -> (Int, Int)
-vecAdd (a,b) (c,d) = (a+c,b+d)
-
-game :: GameLogic
-game = playerPos >>> mkRect batSize &&& (ballPos >>> mkRect ballSize) >>> joinRects
-
-joinRects :: Coroutine (Rect, Rect) Rects
-joinRects = arr (\(a,b) -> [a,b])
+game :: Coroutine Keyboard Rects
+game = proc kb -> do
+    plPos <- playerPos -< kb
+    blPos <- resettingBallPos -< plPos
+    returnA -< [mkRect plPos batSize, mkRect blPos ballSize]
 
 playerSpeed :: Coroutine Keyboard Int
 playerSpeed = arr keyboardDir where
@@ -55,59 +51,20 @@ playerSpeed = arr keyboardDir where
 playerPos :: Coroutine Keyboard PlayerPos
 playerPos = playerSpeed >>> integrate startPos >>> arr (\y -> (10, y))
 
-{-
-playerPos :: Coroutine Keyboard PlayerPos
-playerPos = proc kb -> do
-    dir <- keyboardDir -< kb
-    let velocity = dir * batSpeed
-    y <- integrate startPos -< velocity
-    returnA -< (10, y)
--}
-
-{-
-ballPos :: Coroutine PlayerPos BallPos
-ballPos = loop $ watch collision &&& arr snd
-    >>> mapE (const HBounce) *** wallBounce
-    >>> mergeE
-    >>> scanE bounce ballInitDir
-    >>> arr (vecMul ballSpeed)
-    >>> scan vecAdd ballInitPos
-    >>> withPrevious ballInitPos
--}
-
-{-
 ballPos :: Coroutine PlayerPos BallPos
 ballPos = proc plPos -> do
-    rec pos   <- restartWhen ballPos' -< (plPos, reset)
+    rec bounces <- (batBounce -< (plPos, pos)) <++> (wallBounce -< pos)
+        vel     <- scanE bounce ballInitVel -< bounces
+        pos     <- delay ballInitPos <<< scan vecAdd ballInitPos -< vel
+
+    returnA -< pos
+
+resettingBallPos :: Coroutine PlayerPos BallPos
+resettingBallPos = proc plPos -> do
+    rec pos   <- restartWhen ballPos -< (plPos, reset)
         reset <- watch outOfBounds -< pos
     returnA -< pos
     where outOfBounds (x,_) = x < 0 || x > 800
--}
-
-ballPos :: Coroutine PlayerPos BallPos
-ballPos = loop $ arr (\(ppos, bpos) -> ((ppos, bpos), bpos))
-    >>> batBounce *** wallBounce
-    >>> mergeE
-    >>> scanE bounce ballInitVel
-    >>> scan vecAdd ballInitPos
-    >>> withPrevious ballInitPos
-
-{-
-ballPos :: Coroutine PlayerPos BallPos
-ballPos = loop $ restartWhen ballPos' >>> id &&& watch outOfBounds
-    where outOfBounds (x,_) = x < 0 || x > 800
-
-
-ballPos' :: Coroutine PlayerPos BallPos
-ballPos' = proc plPos -> do
-    rec prev  <- delay ballInitPos -< pos
-        batB  <- constE HBounce <<< watch collision -< (plPos, prev)
-        wallB <- wallBounce -< prev
-        dir   <- scanE bounce ballInitDir <<< mergeE -< (batB, wallB)
-        let velocity = ballSpeed `vecMul` dir
-        pos   <- scan vecAdd ballInitPos -< velocity
-    returnA -< pos
--}
 
 collision :: (PlayerPos, BallPos) -> Bool
 collision ((px,py),(bx,by)) = abs (px-bx) < w' && abs (py-by) < h' where
@@ -127,7 +84,13 @@ wallBounce = watch (\(_,y) -> y < topWall || y > bottomWall) >>> constE VBounce
 batBounce :: Coroutine (PlayerPos, BallPos) (Event BallBounce)
 batBounce = watch collision >>> constE HBounce
 
-mkRect :: Size -> Coroutine Pos Rect
-mkRect (w,h) = arr $ \(x,y) -> ((x-w',y-h'),(w,h)) where
+vecMul :: Int -> (Int, Int) -> (Int, Int)
+vecMul c (x,y) = (x*c,y*c)
+
+vecAdd :: (Int, Int) -> (Int, Int) -> (Int, Int)
+vecAdd (a,b) (c,d) = (a+c,b+d)
+
+mkRect :: Pos -> Size -> Rect
+mkRect (x,y) (w,h) = ((x-w',y-h'),(w,h)) where
     w' = w `div` 2
     h' = h `div` 2
