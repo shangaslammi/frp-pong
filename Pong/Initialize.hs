@@ -42,3 +42,4 @@ initializeCallbacks = do
 
     keyboardMouseCallback $= Just (handleKeyboard refs)
     displayCallback $= renderViewport refs
+    handleTick refs
