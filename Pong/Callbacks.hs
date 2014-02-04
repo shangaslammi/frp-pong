@@ -2,7 +2,10 @@ module Pong.Callbacks
     ( initCallbackRefs
     , renderViewport
     , handleKeyboard
+    , handleTick
     ) where
+
+import Control.Monad
 
 import Data.IORef
 import Data.Time.Clock.POSIX
@@ -19,62 +22,56 @@ import Pong.Rect
 import Control.Coroutine
 
 type KeyboardRef = IORef Keyboard
-type TimeRef     = IORef POSIXTime
-type AccumRef    = TimeRef
-type PrevTimeRef = TimeRef
 type GameRef     = IORef (Rects, GameLogic)
+type TimeRef     = IORef POSIXTime
 
-type CallbackRefs = (AccumRef, PrevTimeRef, KeyboardRef, GameRef)
+type CallbackRefs = (TimeRef, KeyboardRef, GameRef)
 
 secPerTick :: Fractional a => a
 secPerTick = 0.05
 
-maxFrameTime :: Fractional a => a
-maxFrameTime = 0.05
-
 -- | Initialize a new group of callback references
 initCallbackRefs :: IO CallbackRefs
 initCallbackRefs = do
-    accum <- newIORef secPerTick
-    prev  <- getPOSIXTime >>= newIORef
+    next  <- getPOSIXTime >>= newIORef
     keyb  <- newIORef initKeyboard
-    cont  <- newIORef ([],game)
-    return (accum, prev, keyb, cont)
+    cont  <- newIORef ([], game)
+    return (next, keyb, cont)
 
--- | Run the game logic, render the view and swap display buffers
+-- | Render the view and swap display buffers
 renderViewport :: CallbackRefs -> IO ()
-renderViewport (ar, pr, kb, gr) = do
-    current <- getPOSIXTime
-    accum   <- readIORef ar
-    prev    <- readIORef pr
-    keys    <- readIORef kb
-    (r,c)   <- readIORef gr
-
-    let delta  = accum + min maxFrameTime (current - prev)
-
-    (r', accum') <- if delta >= secPerTick
-        then do
-            let (r', c') = runC c keys
-            case c' of
-                Just c' -> do
-                    writeIORef gr (r',c')
-                    return (r', delta - secPerTick)
-                Nothing -> do
-                    exitWith ExitSuccess
-        else return (r, delta)
-
-    writeIORef ar accum'
-    writeIORef pr current
+renderViewport (_, _, gr) = do
+    (r, _)   <- readIORef gr
 
     clear [ColorBuffer]
 
-    renderRects r'
+    renderRects r
     -- let interpolation = realToFrac $ accum' / secPerTick
     -- renderInterpolated interpolation s'
 
     swapBuffers
-    postRedisplay Nothing
+
+-- | Run the game logic, set display to rerender
+handleTick :: CallbackRefs -> TimerCallback
+handleTick refs@(next, kb, gr) = do
+  nextT       <- readIORef next
+  keys        <- readIORef kb
+  (_, c)      <- readIORef gr
+
+  let (r', c') = runC c keys
+  newGr <- case c' of
+    Just c' -> return (r', c')
+    Nothing -> exitWith ExitSuccess
+
+  writeIORef gr newGr
+  postRedisplay Nothing
+
+  current     <- getPOSIXTime
+  let nextTime = max 0 (secPerTick - (current - nextT))
+  writeIORef next (current + nextTime)
+
+  addTimerCallback (round (nextTime * 1000)) (handleTick refs)
 
 -- | Update the Keyboard state according to the event
 handleKeyboard :: CallbackRefs -> KeyboardMouseCallback
-handleKeyboard (_, _, kb, _) k ks _ _ = modifyIORef kb (handleKeyEvent k ks)
+handleKeyboard (_, kb, _) k ks _ _ = modifyIORef kb (handleKeyEvent k ks)
